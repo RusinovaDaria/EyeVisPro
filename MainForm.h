@@ -3,6 +3,8 @@
 #include <chrono>
 #include <ctime>
 
+#include "Sphere.h"
+
 namespace EyeVisPro {
 
 	using namespace System;
@@ -36,6 +38,7 @@ namespace EyeVisPro {
 	    System::Windows::Forms::Panel^ panel;
 		System::Windows::Forms::Button^ button;
 		Graphics^ graphics;
+		Bitmap^ bmp;
 
 #pragma region Windows Form Designer generated code
 		void InitializeComponent(void)
@@ -49,7 +52,7 @@ namespace EyeVisPro {
 			this->panel->BackColor = System::Drawing::SystemColors::ButtonHighlight;
 			this->panel->Location = System::Drawing::Point(13, 13);
 			this->panel->Name = L"panel";
-			this->panel->Size = System::Drawing::Size(768, 437);
+			this->panel->Size = System::Drawing::Size(768, 436);
 			this->panel->TabIndex = 0;
 			// 
 			// button
@@ -71,16 +74,19 @@ namespace EyeVisPro {
 			this->Controls->Add(this->panel);
 			this->Name = L"MainForm";
 			this->Text = L"MainForm";
-			this->Load += gcnew System::EventHandler(this, &MainForm::MainForm_Load);
 			this->Closed += gcnew System::EventHandler(this, &MainForm::MainForm_Closed);
+			this->Load += gcnew System::EventHandler(this, &MainForm::MainForm_Load);
 			this->ResumeLayout(false);
 
 		}
 #pragma endregion
 	private: void initWidgets();
 	private: void initGraphics();
-	private: System::Void button_Click(System::Object^ sender, System::EventArgs^ e);
+	private: void render();
 
+	private: Color TraceRay(Ray3D &ray);
+
+	private: System::Void button_Click(System::Object^ sender, System::EventArgs^ e);
 	private: System::Void MainForm_Load(System::Object^ sender, System::EventArgs^ e);
 	private: System::Void MainForm_Closed(System::Object^ sender, System::EventArgs^ e);
 	};
