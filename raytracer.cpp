@@ -12,11 +12,11 @@ Vec3f refract(const Vec3f& I, const Vec3f& N, const float eta_t, const float eta
     return k < 0 ? Vec3f(1, 0, 0) : I * eta + N * (eta * cosi - sqrtf(k)); // k<0 = total reflection, no ray to refract. I refract it anyways, this has no physical meaning
 }
 
-bool scene_intersect(const Vec3f& orig, const Vec3f& dir, const std::vector<Solid*>& spheres, Vec3f& hit, Vec3f& N, Material& material) {
+bool scene_intersect(const Vec3f& orig, const Vec3f& dir, const std::vector<Solid*>& spheres, HitPoint& hit) {
     float spheres_dist = std::numeric_limits<float>::max();
     for (size_t i = 0; i < spheres.size(); i++) 
     {       
-        spheres[i]->ray_intersect(orig, dir, hit, N, material, spheres_dist, true);
+        spheres[i]->ray_intersect(orig, dir, hit, spheres_dist, true);
     }
 
     float checkerboard_dist = std::numeric_limits<float>::max();
@@ -25,57 +25,57 @@ bool scene_intersect(const Vec3f& orig, const Vec3f& dir, const std::vector<Soli
         Vec3f pt = orig + dir * d;
         if (d > 0 && fabs(pt.x) < 10 && pt.z<-10 && pt.z>-30 && d < spheres_dist) {
             checkerboard_dist = d;
-            hit = pt;
-            N = Vec3f(0, 1, 0);
-            material.diffuse_color = (int(.5 * hit.x + 1000) + int(.5 * hit.z)) & 1 ? Vec3f(.3, .3, .3) : Vec3f(.3, .2, .1);
+            hit.point = pt;
+            hit.N = Vec3f(0, 1, 0);
+            hit.material.diffuse_color = Vec3f(.3, .3, .3);
+            hit.color = Vec3f(.3, .3, .3);
         }
     }
     return std::min(spheres_dist, checkerboard_dist) < 1000;
 }
 
 Vec3f cast_ray(const Vec3f& orig, const Vec3f& dir, const std::vector<Solid*>& spheres, const std::vector<Light>& lights, size_t depth) {
-    Vec3f point, N;
-    Material material;
-    int indx;
+    
+    HitPoint hit;
 
-    if (depth > 4 || !scene_intersect(orig, dir, spheres, point, N, material)) {
-        return Vec3f(0.2, 0.7, 0.8); // background color
+    if (depth > 4 || !scene_intersect(orig, dir, spheres, hit)) {
+        return Vec3f(0.49, 0.8, 0.63); // background color
     }
 
-    Vec3f reflect_dir = reflect(dir, N).normalize();
-    Vec3f refract_dir = refract(dir, N, material.refractive_index).normalize();
-    Vec3f reflect_orig = reflect_dir * N < 0 ? point - N * 1e-3 : point + N * 1e-3; // offset the original point to avoid occlusion by the object itself
-    Vec3f refract_orig = refract_dir * N < 0 ? point - N * 1e-3 : point + N * 1e-3;
+    Vec3f reflect_dir = reflect(dir, hit.N).normalize();
+    Vec3f refract_dir = refract(dir, hit.N, hit.material.refractive_index).normalize();
+    Vec3f reflect_orig = reflect_dir * hit.N < 0 ? hit.point - hit.N * 1e-3 : hit.point + hit.N * 1e-3; 
+    Vec3f refract_orig = refract_dir * hit.N < 0 ? hit.point - hit.N * 1e-3 : hit.point + hit.N * 1e-3;
     Vec3f reflect_color = cast_ray(reflect_orig, reflect_dir, spheres, lights, depth + 1);
     Vec3f refract_color = cast_ray(refract_orig, refract_dir, spheres, lights, depth + 1);
 
     float diffuse_light_intensity = 0, specular_light_intensity = 0;
     for (size_t i = 0; i < lights.size(); i++) {
         
-        Vec3f light_dir = (lights[i].position - point).normalize();
-        float light_distance = (lights[i].position - point).norm();
+        Vec3f light_dir = (lights[i].position - hit.point).normalize();
+        float light_distance = (lights[i].position - hit.point).norm();
 
-        Vec3f shadow_orig = light_dir * N < 0 ? point - N * 1e-3 : point + N * 1e-3; // checking if the point lies in the shadow of the lights[i]
-        Vec3f shadow_pt, shadow_N;
-        Material tmpmaterial;
+        Vec3f shadow_orig = light_dir * hit.N < 0 ? hit.point - hit.N * 1e-3 : hit.point + hit.N * 1e-3; 
+        
+        HitPoint shadow_hit;
 
-        // луч из теневой точки пересекает на своем пути какое то тело 
-        bool is_intersect = scene_intersect(shadow_orig, light_dir, spheres, shadow_pt, shadow_N, tmpmaterial) && (shadow_pt - shadow_orig).norm() < light_distance;
-        if (is_intersect && tmpmaterial.albedo[3] < 0.5)
+        // луч из теневой точки пересекает на своем пути какое то тело и оно непрозрачное
+        bool is_intersect = scene_intersect(shadow_orig, light_dir, spheres, shadow_hit) && (shadow_hit.point - shadow_orig).norm() < light_distance;
+        if (is_intersect && shadow_hit.material.albedo[3] < 0.5)
             continue;
         
         float intensity = lights[i].intensity;
         if (is_intersect)
-            intensity *= tmpmaterial.albedo[3];
+            intensity *= shadow_hit.material.albedo[3];
 
-        diffuse_light_intensity += intensity * std::max(0.f, light_dir * N);
-        specular_light_intensity += powf(std::max(0.f, -reflect(-light_dir, N) * dir), material.specular_exponent) * lights[i].intensity;
+        diffuse_light_intensity += intensity * std::max(0.f, light_dir * hit.N);
+        specular_light_intensity += powf(std::max(0.f, -reflect(-light_dir, hit.N) * dir), hit.material.specular_exponent) * lights[i].intensity;
     }
 
-    return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + 
-        Vec3f(1., 1., 1.) * specular_light_intensity * material.albedo[1] + 
-        reflect_color * material.albedo[2] + 
-        refract_color * material.albedo[3];
+    return hit.color * diffuse_light_intensity * hit.material.albedo[0] + 
+        Vec3f(1., 1., 1.) * specular_light_intensity * hit.material.albedo[1] +
+        reflect_color * hit.material.albedo[2] + 
+        refract_color * hit.material.albedo[3];
 }
 
 void render(System::Drawing::Bitmap^ bmp, const std::vector<Solid*>& spheres, const std::vector<Light>& lights) {

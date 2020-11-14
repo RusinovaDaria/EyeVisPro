@@ -21,16 +21,16 @@ System::Void MainForm::MainForm_Load(System::Object^ sender, System::EventArgs^ 
     std::vector<Solid *> scene;
     Vec3f c(0, 0, -15);
     float r = 3;
-
+    float r = 3;
+    
     scene.push_back(new Eye(c, r));
-    scene[0]->set_rotation(c, 0, -M_PI / 2, 0);
+    scene[0]->set_rotation(c, 0, - M_PI + M_PI / 5, 0);
     
     std::vector<Light>  lights;
     lights.push_back(Light(Vec3f(-20, 20, 20), 1.5));
     lights.push_back(Light(Vec3f(30, 50, -25), 1.8));
     lights.push_back(Light(Vec3f(30, 20, 30), 1.7));
-    //lights.push_back(Light(Vec3f(0, 0, 0), 1.7));
-
+    
     
     render(bitmap, scene, lights);
 }

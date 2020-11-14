@@ -12,6 +12,39 @@
 #include "poly.h"
 #include "transform.h"
 
+// enviromantal map 
+class Texture
+{
+public:
+
+    // размеры
+    size_t height;
+    size_t width;
+
+    // матрица цветов
+    std::shared_ptr<Vec3f[]> map;
+
+    Texture() = default;
+
+    // прочитать текстуру из файла
+    Texture(System::String^ filepath)
+    {
+        System::Drawing::Bitmap bmp(filepath);
+        height = bmp.Height;
+        width = bmp.Width;
+
+        map = std::shared_ptr<Vec3f[]>(new Vec3f[width * height]);
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                System::Drawing::Color c = bmp.GetPixel(i, j);
+                map[i * height + j] = Vec3f(c.R / 255., c.G / 255., c.B / 255.);
+            }
+        }
+    }
+};
+
 class Light { 
 public:
 
@@ -24,10 +57,20 @@ class Material {
 public:
     Material(const float r, const Vec4f& a, const Vec3f& color, const float spec) : refractive_index(r), albedo(a), diffuse_color(color), specular_exponent(spec) {}
     Material() : refractive_index(1), albedo(1, 0, 0, 0), diffuse_color(), specular_exponent() {}
+    
     float refractive_index;
     Vec4f albedo;
     Vec3f diffuse_color;
     float specular_exponent;
+};
+
+// точка падения луча
+struct HitPoint
+{
+    Vec3f color;
+    Material material;
+    Vec3f N;
+    Vec3f point;
 };
 
 class Solid 
@@ -38,7 +81,7 @@ public:
     virtual bool ray_intersect(const Vec3f& orig, const Vec3f& dir, float& t0) const = 0;
 
     // поиск точки пересечения если она есть  
-    virtual bool ray_intersect(const Vec3f& orig, const Vec3f& dir, Vec3f& hit, Vec3f& N, Material& m, float& dist, bool rotate = false) const = 0;
+    virtual bool ray_intersect(const Vec3f& orig, const Vec3f& dir, HitPoint& hitp, float& dist, bool rotate = false) const = 0;
 
     virtual Vec3f findN(Vec3f& hit) const = 0;
     virtual bool inBorders(Vec3f& point) const { return true; }
@@ -59,7 +102,31 @@ public:
     float radius;
     Rotation rot;
 
+    Texture texture;
+    bool is_texture = false;
+
+    virtual Vec3f get_color(Vec3f point) const
+    {
+        if (is_texture)
+        {
+
+            double teta = asin((point.x - center.x) / radius) / (2.0 * M_PI);
+            double gama = atan2((point.y - center.y), (point.z - center.z)) / M_PI;
+            
+            float U = 0.5 + teta; // *texture.width) % (int)texture.width;
+            float V = 0.5 - gama; // (teta / M_PI)* texture.height;
+
+            int i = (int) (U * texture.height) % texture.height;
+            int j = (int) (V * texture.width) % texture.width;
+
+            return texture.map[i * texture.height + j];
+        }
+
+        return material.diffuse_color;
+    }
+
     Sphere(const Vec3f& c, const float r, const Material& m) : material(m), center(c), radius(r) {}
+    Sphere(const Vec3f& c, const float r, const Material& m, const Texture& t) : material(m), center(c), radius(r), texture(t), is_texture(true) {}
     bool ray_intersect(const Vec3f& orig, const Vec3f& dir, float& t0) const {
         Vec3f L = center - orig;
         float tca = L * dir;
@@ -81,7 +148,7 @@ public:
 
         return true;
     }
-    bool ray_intersect(const Vec3f& orig, const Vec3f& dir, Vec3f& hit, Vec3f& N, Material& m, float& dist, bool rotate = false) const
+    bool ray_intersect(const Vec3f& orig, const Vec3f& dir, HitPoint& hit, float& dist, bool rotate = false) const
     {
         if (rotate)
         {
@@ -91,13 +158,14 @@ public:
             float t0;
             if (ray_intersect(new_orig, new_dir, t0) && t0 < dist)
             {
-                hit = orig + dir * t0;
-                N = this->findN(hit);
+                hit.point = new_orig + new_dir * t0;
+                hit.color = get_color(hit.point);
+                hit.N = this->findN(hit.point);
 
-                hit = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit, 1));
-                N = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(N, 0));
+                hit.point = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit.point, 1));
+                hit.N = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit.N, 0));
 
-                m = this->material;
+                hit.material = this->material;
                 dist = t0;
 
                 return true;
@@ -109,12 +177,11 @@ public:
             float t0;
             if (ray_intersect(orig, dir, t0) && t0 < dist)
             {
-                hit = orig + dir * t0;
-                N = this->findN(hit);
+                hit.point = orig + dir * t0;
+                hit.color = get_color(hit.point);
+                hit.N = this->findN(hit.point);
 
-                m = this->material;
-                //if (m.albedo[3] >= 0.5)
-                //    std::cout << "transparent\n";
+                hit.material = this->material;
                 dist = t0;
 
                 return true;
@@ -186,7 +253,7 @@ public:
 
         return true;
     }
-    bool ray_intersect(const Vec3f& orig, const Vec3f& dir, Vec3f& hit, Vec3f& N, Material& m, float& dist, bool rotate = false) const
+    bool ray_intersect(const Vec3f& orig, const Vec3f& dir, HitPoint& hit, float& dist, bool rotate = false) const 
     {
         if (rotate)
         {
@@ -195,13 +262,14 @@ public:
             float t0;
             if (ray_intersect(new_orig, new_dir, t0) && t0 < dist)
             {
-                hit = new_orig + new_dir * t0;
-                N = this->findN(hit);
+                hit.point = new_orig + new_dir * t0;
+                hit.color = this->material.diffuse_color;
+                hit.N = this->findN(hit.point);
 
-                hit = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit, 1));
-                N = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(N, 0));
+                hit.point = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit.point, 1));
+                hit.N = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit.N, 0));
 
-                m = this->material;
+                hit.material = this->material;
                 dist = t0;
 
                 return true;
@@ -213,10 +281,11 @@ public:
             float t0;
             if (ray_intersect(orig, dir, t0) && t0 < dist)
             {
-                hit = orig + dir * t0;
-                N = this->findN(hit);
+                hit.point = orig + dir * t0;
+                hit.color = this->material.diffuse_color;
+                hit.N = this->findN(hit.point);
 
-                m = this->material;
+                hit.material = this->material;
                 dist = t0;
 
                 return true;
@@ -345,6 +414,7 @@ class Sclera : public Sphere
 public:
 
     Sclera(const Vec3f& c, const float r, const Material& m) : Sphere(c, r, m) {};
+    Sclera(const Vec3f& c, const float r, const Material& m, const Texture& t) : Sphere(c, r, m, t) {};
     bool inBorders(Vec3f& point) const
     {
         return (point.x >= center.x - radius * cos(0.645772));
@@ -357,10 +427,29 @@ class Iris : public Sphere
 public:
 
     Iris(const Vec3f& c, const float r, const Material& m) : Sphere(c, r, m) {};
+    Iris(const Vec3f& c, const float r, const Material& m, const Texture& t) : Sphere(c, r, m, t) {};
     bool inBorders(Vec3f& point) const
     {        
-        return (point.x >= center.x - radius * cos(0.1)) && (point.x <= center.x - radius * cos(0.418879));
+        return (point.x >= center.x - radius * cos(0.15)) && (point.x <= center.x - radius * cos(0.418879));
     }
+
+    Vec3f get_color(Vec3f point) const
+    {
+        if (is_texture)
+        {
+            Vec3f v = findN(point);
+            float U = v.z * 0.5 / 0.418879 + 0.5;
+            float V = v.y * 0.5 / 0.418879 + 0.5;
+
+            int i = (int)(U * texture.height) % texture.height;
+            int j = (int)(V * texture.width) % texture.width;
+
+            return texture.map[i * texture.height + j];
+        }
+
+        return material.diffuse_color;
+    }
+
 };
 
 // стекловидное тело 
@@ -391,53 +480,74 @@ public:
     float radius;
     Rotation rot;
     std::vector<Solid*> components;
+    Sphere border;
 
-    Eye(const Vec3f& c, float r) : center(c), radius(r) 
+    Eye(const Vec3f& c, float r) : center(c), radius(r), border(c, 1.25*r, Material())
     {
-        Material  cryst_glass(1.0, Vec4f(0.0, 1, 0.2, 0.5), Vec3f(0.6, 0.7, 0.8), 125.);
+        Material  cryst_glass(1.0, Vec4f(0.0, 0.1, 0.2, 0.7), Vec3f(0.6, 0.7, 0.8), 125.);
         Material  cornea_glass(1.0, Vec4f(0.0, 0.1, 0.2, 0.7), Vec3f(0.6, 0.7, 0.8), 125.);
-        Material  blue_iris(1.0, Vec4f(0.9, 0.1, 0.0, 0.0), Vec3f(0., 0.2, 0.8), 10.);
-        Material white_glass(1.0, Vec4f(0.6, 0.1, 0.1, 0.2), Vec3f(1, 1, 1), 125.);
-        Material  red_rubber(1.0, Vec4f(0.9, 0.1, 0.0, 0.0), Vec3f(0.3, 0.1, 0.1), 10.);
+        Material  blue_iris(1.0, Vec4f(0.5, 0.5, 0.0, 0.0), Vec3f(0., 0.2, 0.8), 10.);
+        Material white_glass(1.0, Vec4f(0.5, 0.8, 0.1, 0.1), Vec3f(0.5, 0.5, 0.5), 125.);
+        Material  red_rubber(1.0, Vec4f(0.9, 0.1, 0.0, 0.0), Vec3f(0.09, 0.01, 0.01), 10.);
 
-        components.push_back(new Cornea(c - Vec3f(0.39 * r, 0, 0), 0.85 * r, cornea_glass));
-        components.push_back(new Sclera(c, r * 7 / 6, white_glass));
-        components.push_back(new Iris(c + Vec3f(0.8 * r, 0, 0), 1.85 * r, blue_iris));
+        Texture sclera_texture("1_1.bmp");
+        Texture iris_texture("447_3.bmp");
+
+
+        //components.push_back(new Sphere(c, 1.25*r, cornea_glass));
+        components.push_back(new Cornea(c - Vec3f(0.37 * r, 0, 0), 0.9 * r, cornea_glass));
+        components.push_back(new Sclera(c, r * 7 / 6, white_glass, sclera_texture));
+        components.push_back(new Iris(c + Vec3f(0.8 * r, 0, 0), 1.85 * r, red_rubber, iris_texture));
         components.push_back(new Crystalline(c - Vec3f(0.82 * r, 0, 0), 0.7 * r, red_rubber));
         components.push_back(new Sphere(c + Vec3f(0.1 * r, 0, 0), 0.8 * r, red_rubber));
     }
 
     bool ray_intersect(const Vec3f& orig, const Vec3f& dir, float& t0) const { return false; }
 
-    bool ray_intersect(const Vec3f& orig, const Vec3f& dir, Vec3f& hit, Vec3f& N, Material& m, float& dist, bool rotate=false) const
+    bool ray_intersect(const Vec3f& orig, const Vec3f& dir, HitPoint& hit, float& dist, bool rotate = false) const
     {
         if (rotate)
         {
             Vec3f new_orig = to_cartesian(get_rotation().getMatrix() * to_homogeneous(orig, 1));
             Vec3f new_dir = to_cartesian(get_rotation().getMatrix() * to_homogeneous(dir, 0));
 
-            for (int i = 0; i < components.size(); i++)
+            float t;
+            bool is_intersect;
+            if (border.ray_intersect(new_orig, new_dir, t))
             {
-                // проверяем пересечение с очередным компонентом
-                components[i]->ray_intersect(new_orig, new_dir, hit, N, m, dist);
-            }
+                for (int i = 0; i < components.size(); i++)
+                {
+                    // проверяем пересечение с очередным компонентом
+                    if (components[i]->ray_intersect(new_orig, new_dir, hit, dist))
+                        is_intersect = true;
 
-            hit = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit, 1));
-            N = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(N, 0));
+                }
+
+                hit.point = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit.point, 1));
+                hit.N = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit.N, 0));
+
+                return is_intersect && (dist < 1000);
+            }
         }
         else
         {
-            for (int i = 0; i < components.size(); i++)
+            float t;
+            bool is_intersect;
+            if (border.ray_intersect(orig, dir, t))
             {
-                // проверяем пересечение с очередным компонентом
-                components[i]->ray_intersect(orig, dir, hit, N, m, dist);
+
+                for (int i = 0; i < components.size(); i++)
+                {
+                    // проверяем пересечение с очередным компонентом
+                    if (components[i]->ray_intersect(orig, dir, hit, dist))
+                        is_intersect = true;
+                }
+
+                return is_intersect && (dist < 1000);
             }
         }
 
-        //if (m.albedo[3] >= 0.5)
-        //    std::cout << "transparent\n";
-
-        return dist < 1000;
+        return false;
     }
 
     Vec3f findN(Vec3f& hit) const
@@ -460,6 +570,6 @@ public:
 Vec3f reflect(const Vec3f& I, const Vec3f& N);
 Vec3f refract(const Vec3f& I, const Vec3f& N, const float eta_t, const float eta_i = 1.f);
 
-bool scene_intersect(const Vec3f& orig, const Vec3f& dir, const std::vector<Solid*>& spheres, Vec3f& hit, Vec3f& N, Material& material);
+bool scene_intersect(const Vec3f& orig, const Vec3f& dir, const std::vector<Solid*>& spheres, HitPoint& hit);
 Vec3f cast_ray(const Vec3f& orig, const Vec3f& dir, const std::vector<Solid*>& spheres, const std::vector<Light>& lights, size_t depth = 0);
 void render(System::Drawing::Bitmap^ bmp, const std::vector<Solid *>& spheres, const std::vector<Light>& lights);
