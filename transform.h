@@ -63,10 +63,6 @@ template<typename T> vec<4, vec<4, T>> operator*(const vec<4, vec<4, T>>& m1, co
 	return ret;
 }
 
-
-//#define EPS 1e-5
-//bool isZero(float a);
-
 // сдвиг объекта
 class Movement 
 {
@@ -390,6 +386,22 @@ public:
 		matrix_z_inv(identity_mtrx()),
 		matrix_mov_inv(identity_mtrx())
 	{ fill_matricies(); };
+
+	Rotation(const Vec3f& c, const Vec3f& a) : center(c), angle(a),
+		matrix(identity_mtrx()),
+		matrix_x(identity_mtrx()),
+		matrix_y(identity_mtrx()),
+		matrix_z(identity_mtrx()),
+		matrix_mov(identity_mtrx()),
+
+		matrix_inv(identity_mtrx()),
+		matrix_x_inv(identity_mtrx()),
+		matrix_y_inv(identity_mtrx()),
+		matrix_z_inv(identity_mtrx()),
+		matrix_mov_inv(identity_mtrx())
+	{
+		fill_matricies();
+	};
 
 	void setParameters(const Vec3f& c, const Vec3f& a)
 	{
