@@ -1,7 +1,12 @@
 #ifndef __GEOMETRY_H__
 #define __GEOMETRY_H__
 
+#define _USE_MATH_DEFINES
 #include <cmath>
+
+// не входит в стандарт -> в cmath ее может не быть
+#define M_PI 3.1415
+
 #include <vector>
 #include <cassert>
 #include <iostream>
@@ -16,6 +21,7 @@ private:
 
 typedef vec<2, float> Vec2f;
 typedef vec<3, float> Vec3f;
+typedef vec<2, int  > Vec2i;
 typedef vec<3, int  > Vec3i;
 typedef vec<4, float> Vec4f;
 typedef vec<5, float> Vec5f;
@@ -102,5 +108,9 @@ template <size_t DIM, typename T> std::ostream& operator<<(std::ostream& out, co
     return out;
 }
 
+template <size_t DIM, typename T> std::istream& operator>>(std::istream& in, vec<DIM, T>& v) {
+    for (unsigned int i = 0; i < DIM; i++) in >> v[i];
+    return in;
+}
 
 #endif //__GEOMETRY_H__

@@ -1,134 +1,74 @@
+ï»¿
 #include "raytracer.h"
+#include "cubemap.h"
 #include <ctime>
+#include <omp.h>
+#include "utils.h"
 
-Vec3f reflect(const Vec3f& I, const Vec3f& N) {
+Vec3f reflect(const Vec3f& I, const Vec3f& N) 
+{
     return I - N * 2.f * (I * N);
 }
 
-Vec3f refract(const Vec3f& I, const Vec3f& N, const float eta_t, const float eta_i) { // Snell's law
+Vec3f refract(const Vec3f& I, const Vec3f& N, const float eta_t, const float eta_i) 
+{
     float cosi = -std::max(-1.f, std::min(1.f, I * N));
-    if (cosi < 0) return refract(I, -N, eta_i, eta_t); // if the ray comes from the inside the object, swap the air and the media
+
+    if (cosi < 0) return refract(I, -N, eta_i, eta_t); 
     float eta = eta_i / eta_t;
     float k = 1 - eta * eta * (1 - cosi * cosi);
-    return k < 0 ? Vec3f(1, 0, 0) : I * eta + N * (eta * cosi - sqrtf(k)); // k<0 = total reflection, no ray to refract. I refract it anyways, this has no physical meaning
+
+    return k < 0 ? Vec3f(1, 0, 0) : I * eta + N * (eta * cosi - sqrtf(k)); 
 }
 
 bool scene_intersect(const Vec3f& orig, const Vec3f& dir, const std::vector<std::shared_ptr<Solid>>& solids, HitPoint& hit) {
     float spheres_dist = std::numeric_limits<float>::max();
-    for (size_t i = 0; i < solids.size(); i++) 
-    {       
+    for (size_t i = 0; i < solids.size(); i++)
+    {
         solids[i]->ray_intersect(orig, dir, hit, spheres_dist, true);
     }
 
     float board_dist = std::numeric_limits<float>::max();
     if (fabs(dir.y) > 1e-3) {
-        float d = -(orig.y + 4) / dir.y; 
+        float d = -(orig.y + 4) / dir.y;
         Vec3f pt = orig + dir * d;
         if (d > 0 && fabs(pt.x) < 10 && pt.z<-10 && pt.z>-30 && d < spheres_dist) {
             board_dist = d;
             hit.point = pt;
             hit.N = Vec3f(0, 1, 0);
-            hit.material.diffuse_color = Vec3f(.3, .3, .3);
+            hit.material.color = Vec3f(.3, .3, .3);
             hit.color = Vec3f(.3, .3, .3);
         }
     }
     return std::min(spheres_dist, board_dist) < 1000;
 }
 
-void convert_xyz_to_cube_uv(float x, float y, float z, float* u, float* v)
-{
-    float absX = fabs(x);
-    float absY = fabs(y);
-    float absZ = fabs(z);
-
-    int isXPositive = x > 0 ? 1 : 0;
-    int isYPositive = y > 0 ? 1 : 0;
-    int isZPositive = z > 0 ? 1 : 0;
-
-    float maxAxis, uc, vc;
-
-    // POSITIVE X
-    if (isXPositive && absX >= absY && absX >= absZ) {
-        // u (0 to 1) goes from +z to -z
-        // v (0 to 1) goes from -y to +y
-        maxAxis = absX;
-        uc = -z;
-        vc = y;
-    }
-    // NEGATIVE X
-    if (!isXPositive && absX >= absY && absX >= absZ) {
-        // u (0 to 1) goes from -z to +z
-        // v (0 to 1) goes from -y to +y
-        maxAxis = absX;
-        uc = z;
-        vc = y;
-    }
-    // POSITIVE Y
-    if (isYPositive && absY >= absX && absY >= absZ) {
-        // u (0 to 1) goes from -x to +x
-        // v (0 to 1) goes from +z to -z
-        maxAxis = absY;
-        uc = x;
-        vc = -z;
-    }
-    // NEGATIVE Y
-    if (!isYPositive && absY >= absX && absY >= absZ) {
-        // u (0 to 1) goes from -x to +x
-        // v (0 to 1) goes from -z to +z
-        maxAxis = absY;
-        uc = x;
-        vc = z;
-    }
-    // POSITIVE Z
-    if (isZPositive && absZ >= absX && absZ >= absY) {
-        // u (0 to 1) goes from -x to +x
-        // v (0 to 1) goes from -y to +y
-        maxAxis = absZ;
-        uc = x;
-        vc = y;
-    }
-    // NEGATIVE Z
-    if (!isZPositive && absZ >= absX && absZ >= absY) {
-        // u (0 to 1) goes from +x to -x
-        // v (0 to 1) goes from -y to +y
-        maxAxis = absZ;
-        uc = -x;
-        vc = y;
-    }
-
-    // Convert range from -1 to 1 to 0 to 1
-    *u = 0.5f * (uc / maxAxis + 1.0f);
-    *v = 0.5f * (vc / maxAxis + 1.0f);
-}
-
-Vec3f cast_ray(const Vec3f& orig, const Vec3f& dir, const std::vector<std::shared_ptr<Solid>>& solids, const std::vector<Light>& lights, size_t depth) {
+Vec3f cast_ray(const Vec3f& orig, const Vec3f& dir, Scene& scene, size_t depth) {
     
     HitPoint hit;
+    std::vector<std::shared_ptr<Solid>> solids = scene.get_solids();
+    std::vector<Light> lights = scene.get_lights();
 
-    if (depth > 4 || !scene_intersect(orig, dir, solids, hit)) {
-        
-        // öâåò ôîíà
-        static Texture back("surgery.bmp");
-        
-        double teta = asin(dir.x) / (M_PI);
-        double gama = atan2(dir.z, dir.y) / (2.0 * M_PI);
+    bool is_scene_intersect = scene_intersect(orig, dir, solids, hit);
 
-        float U = 0.5 + teta; // *texture.width) % (int)texture.width;
-        float V = 0.5 - gama; // (teta / M_PI)* texture.height;
+    // Ð½Ð°Ñ‚ÐºÐ½ÑƒÐ»Ð¸ÑÑŒ Ð½Ð° Ð²Ð½ÑƒÑ‚Ñ€ÐµÐ½Ð½ÑŽÑŽ ÑÑ‚Ð¾Ñ€Ð¾Ð½Ñƒ Ð½ÐµÐ¿Ñ€Ð¾Ð·Ñ€Ð°Ñ‡Ð½Ð¾Ð³Ð¾ Ñ‚ÐµÐ»Ð° 
+    if (is_scene_intersect && dot(dir, hit.N) > 0 && hit.material.albedo[3] <= 0.5)
+    {
+            return Vec3f(0, 0, 0);
+    }
 
-        int i = (int)(U * back.height) % back.height;
-        int j = (int)(V * back.width) % back.width;
-        
-     
-        return back.map[i * back.height + j];
+    if (depth > 2 || !is_scene_intersect)
+    {   
+        // Ñ†Ð²ÐµÑ‚ Ñ„Ð¾Ð½Ð°
+        return scene.getBackgroundColor(dir);
     }
 
     Vec3f reflect_dir = reflect(dir, hit.N).normalize();
     Vec3f refract_dir = refract(dir, hit.N, hit.material.refractive_index).normalize();
     Vec3f reflect_orig = reflect_dir * hit.N < 0 ? hit.point - hit.N * 1e-3 : hit.point + hit.N * 1e-3; 
     Vec3f refract_orig = refract_dir * hit.N < 0 ? hit.point - hit.N * 1e-3 : hit.point + hit.N * 1e-3;
-    Vec3f reflect_color = cast_ray(reflect_orig, reflect_dir, solids, lights, depth + 1);
-    Vec3f refract_color = cast_ray(refract_orig, refract_dir, solids, lights, depth + 1);
+    Vec3f reflect_color = cast_ray(reflect_orig, reflect_dir, scene, depth + 1);
+    Vec3f refract_color = cast_ray(refract_orig, refract_dir, scene, depth + 1);
 
     float diffuse_light_intensity = 0, specular_light_intensity = 0;
     for (size_t i = 0; i < lights.size(); i++) {
@@ -140,7 +80,7 @@ Vec3f cast_ray(const Vec3f& orig, const Vec3f& dir, const std::vector<std::share
         
         HitPoint shadow_hit;
 
-        // ëó÷ èç òåíåâîé òî÷êè ïåðåñåêàåò íà ñâîåì ïóòè êàêîå òî òåëî è îíî íåïðîçðà÷íîå
+        // Ð»ÑƒÑ‡ Ð¸Ð· Ñ‚ÐµÐ½ÐµÐ²Ð¾Ð¹ Ñ‚Ð¾Ñ‡ÐºÐ¸ Ð¿ÐµÑ€ÐµÑÐµÐºÐ°ÐµÑ‚ Ð½Ð° ÑÐ²Ð¾ÐµÐ¼ Ð¿ÑƒÑ‚Ð¸ ÐºÐ°ÐºÐ¾Ðµ Ñ‚Ð¾ Ñ‚ÐµÐ»Ð¾ Ð¸ Ð¾Ð½Ð¾ Ð½ÐµÐ¿Ñ€Ð¾Ð·Ñ€Ð°Ñ‡Ð½Ð¾Ðµ
         bool is_intersect = scene_intersect(shadow_orig, light_dir, solids, shadow_hit) && (shadow_hit.point - shadow_orig).norm() < light_distance;
         if (is_intersect && shadow_hit.material.albedo[3] < 0.5)
             continue;
@@ -161,47 +101,113 @@ Vec3f cast_ray(const Vec3f& orig, const Vec3f& dir, const std::vector<std::share
 
 void render(System::Drawing::Bitmap^ bmp, Scene& scene)
 {
+    clock_t start = std::clock();
+
     const int   width = bmp->Width;
     const int   height = bmp->Height;
-    const float fov = M_PI / 3.;
+
+    const float    half_width = width / 2;
+    const float    half_height = height / 2;
+
+    const float tan_fov_2 = 2. * tan(M_PI / 6.);
+    const float dir_z = -1 * (height / tan_fov_2);
+
     const float halfpi = M_PI / 2;
 
     std::vector<Vec3f> framebuffer(width * height);
-
     Rotation rot(scene.get_camera().get_location(), scene.get_camera().get_sight());
 
-    clock_t start = std::clock();
+    omp_lock_t l;
+    omp_init_lock(&l);
 
-//#pragma omp parallel for shared(bmp, framebuffer)
+#pragma omp parallel for
     for (int j = 0; j < height; j++) { 
+#pragma omp parallel for
         for (int i = 0; i < width; i++) {
 
-            // ýòî âåêòîð âçãëÿäà â ñèñòåìå êîîðäèíàò êàìåðû ( â ýòîé ñèñòåìå âçãëÿä â öåíòð õîëñòà == 0,0,-1)
-            float dir_x =  0 + (i + 0.5) - width / 2.;
-            float dir_y =  0 - (j + 0.5) + height / 2.;    
-            float dir_z = -1 * (height / (2. * tan(fov / 2.)));
+            int indx = i + j * width;
+
+            // ÑÑ‚Ð¾ Ð²ÐµÐºÑ‚Ð¾Ñ€ Ð²Ð·Ð³Ð»ÑÐ´Ð° Ð² ÑÐ¸ÑÑ‚ÐµÐ¼Ðµ ÐºÐ¾Ð¾Ñ€Ð´Ð¸Ð½Ð°Ñ‚ ÐºÐ°Ð¼ÐµÑ€Ñ‹ ( Ð² ÑÑ‚Ð¾Ð¹ ÑÐ¸ÑÑ‚ÐµÐ¼Ðµ Ð²Ð·Ð³Ð»ÑÐ´ Ð² Ñ†ÐµÐ½Ñ‚Ñ€ Ñ…Ð¾Ð»ÑÑ‚Ð° == 0,0,-1)
+            float dir_x = (i + 0.5) - half_width;
+            float dir_y = -(j + 0.5) + half_height;
             Vec3f dir = Vec3f(dir_x, dir_y, dir_z).normalize();
-
-            // ïîâîðà÷èâàåì âåêòîð, ÷òîáû ïîëó÷èòü âçãëÿä êàìåðû
+            
+            // Ð¿Ð¾Ð²Ð¾Ñ€Ð°Ñ‡Ð¸Ð²Ð°ÐµÐ¼ Ð²ÐµÐºÑ‚Ð¾Ñ€, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð¿Ð¾Ð»ÑƒÑ‡Ð¸Ñ‚ÑŒ Ð²Ð·Ð³Ð»ÑÐ´ ÐºÐ°Ð¼ÐµÑ€Ñ‹
             Vec3f new_dir = to_cartesian(rot.getMatrix() * to_homogeneous(dir, 0));
-            framebuffer[i + j * width] = cast_ray(scene.get_camera().get_location(), new_dir, scene.get_solids(), scene.get_lights());
-
-            Vec3f& c = framebuffer[i + j * width];
+            framebuffer[indx] = cast_ray(scene.get_camera().get_location(), new_dir, scene);
+            
+            Vec3f& c = framebuffer[indx];
             float max = std::max(c[0], std::max(c[1], c[2]));
             if (max > 1) c = c * (1. / max);
+
+            omp_set_lock(&l);
+
             bmp->SetPixel(i, j, System::Drawing::Color::FromArgb(
                 255,
-                (255 * std::max(0.f, std::min(1.f, framebuffer[i + j * width][0]))),
-                (255 * std::max(0.f, std::min(1.f, framebuffer[i + j * width][1]))),
-                (255 * std::max(0.f, std::min(1.f, framebuffer[i + j * width][2])))
+                (255 * std::max(0.f, std::min(1.f, framebuffer[indx][0]))),
+                (255 * std::max(0.f, std::min(1.f, framebuffer[indx][1]))),
+                (255 * std::max(0.f, std::min(1.f, framebuffer[indx][2])))
             ));
+
+            omp_unset_lock(&l);
         }
     }
 
     clock_t end = std::clock();
+    omp_destroy_lock(&l);
+}
 
-    FILE* f;
-    f = fopen("log.txt", "w");
-    fprintf(f, "linear time: %ld\n", end - start);
-    fclose(f);
+
+void render(System::Drawing::Bitmap^ bmp, Scene& scene, const Camera& cam)
+{
+    const int   width = bmp->Width;
+    const int   height = bmp->Height;
+
+    const float    half_width = width / 2;
+    const float    half_height = height / 2;
+
+    const float tan_fov_2 = 2. * tan(M_PI / 6.);
+    const float dir_z = -1 * (height / tan_fov_2);
+
+    const float halfpi = M_PI / 2;
+
+    std::vector<Vec3f> framebuffer(width * height);
+    Rotation rot(cam.get_location(), cam.get_sight());
+
+    omp_lock_t l;
+    omp_init_lock(&l);
+
+#pragma omp parallel for
+    for (int j = 0; j < height; j++) {
+#pragma omp parallel for
+        for (int i = 0; i < width; i++) {
+
+            int indx = i + j * width;
+
+            // ÑÑ‚Ð¾ Ð²ÐµÐºÑ‚Ð¾Ñ€ Ð²Ð·Ð³Ð»ÑÐ´Ð° Ð² ÑÐ¸ÑÑ‚ÐµÐ¼Ðµ ÐºÐ¾Ð¾Ñ€Ð´Ð¸Ð½Ð°Ñ‚ ÐºÐ°Ð¼ÐµÑ€Ñ‹ ( Ð² ÑÑ‚Ð¾Ð¹ ÑÐ¸ÑÑ‚ÐµÐ¼Ðµ Ð²Ð·Ð³Ð»ÑÐ´ Ð² Ñ†ÐµÐ½Ñ‚Ñ€ Ñ…Ð¾Ð»ÑÑ‚Ð° == 0,0,-1)
+            float dir_x = (i + 0.5) - half_width;
+            float dir_y = -(j + 0.5) + half_height;
+            Vec3f dir = Vec3f(dir_x, dir_y, dir_z).normalize();
+
+            // Ð¿Ð¾Ð²Ð¾Ñ€Ð°Ñ‡Ð¸Ð²Ð°ÐµÐ¼ Ð²ÐµÐºÑ‚Ð¾Ñ€, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð¿Ð¾Ð»ÑƒÑ‡Ð¸Ñ‚ÑŒ Ð²Ð·Ð³Ð»ÑÐ´ ÐºÐ°Ð¼ÐµÑ€Ñ‹
+            Vec3f new_dir = to_cartesian(rot.getMatrix() * to_homogeneous(dir, 0));
+            framebuffer[indx] = cast_ray(cam.get_location(), new_dir, scene);
+
+            Vec3f& c = framebuffer[indx];
+            float max = std::max(c[0], std::max(c[1], c[2]));
+            if (max > 1) c = c * (1. / max);
+
+            omp_set_lock(&l);
+
+            bmp->SetPixel(i, j, System::Drawing::Color::FromArgb(
+                255,
+                (255 * std::max(0.f, std::min(1.f, framebuffer[indx][0]))),
+                (255 * std::max(0.f, std::min(1.f, framebuffer[indx][1]))),
+                (255 * std::max(0.f, std::min(1.f, framebuffer[indx][2])))
+            ));
+
+            omp_unset_lock(&l);
+        }
+    }
+    omp_destroy_lock(&l);
 }

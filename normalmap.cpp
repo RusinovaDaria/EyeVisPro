@@ -1,10 +1,5 @@
 #include "NormalMap.h"
 
-NormalMap::NormalMap(std::istream& in) {
-    in >> scale;
-    in >> amount;
-}
-
 Vec3f NormalMap::modifyNormal(const Vec3f& normal, const Vec3f& point) const {
     Vec3f noise;
     double x = point.x / scale;

@@ -3,6 +3,8 @@
 #include "hitpoint.h"
 #include "material.h"
 #include "transform.h"
+#include "texture.h"
+#include "normalmap.h"
 
 class Solid
 {
@@ -24,4 +26,7 @@ public:
     virtual Rotation get_rotation() const = 0;
 
     virtual void set_rotation(const Vec3f& c, float ax, float ay, float az) = 0;
+    virtual void set_texture(const Texture& txt) = 0;
+    virtual void set_material(const Material& mtr) = 0;
+    virtual void set_normal_map(const NormalMap& nm) = 0;
 };

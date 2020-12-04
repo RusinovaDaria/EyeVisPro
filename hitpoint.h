@@ -1,4 +1,6 @@
 #pragma once
+#include "material.h"
+#include "geometry.h"
 
 // точка падения луча
 struct HitPoint

@@ -14,8 +14,13 @@ public:
     Vec3f d;
     Rotation rot;
 
+    float dx_2 = 0.5;
+    float dy_2 = 0.5;
+    float dz_2 = 0.5;
+
     Ellipsoid(const Material& m) : material(m), center(Vec3f(0, 0, 0)), d(Vec3f(1, 1, 1)) {}
-    Ellipsoid(Vec3f c, Vec3f d, const Material& m) : material(m), center(c), d(d) {}
+    Ellipsoid(Vec3f c, Vec3f d, const Material& m) : material(m), center(c), d(d),
+        dx_2(d.x * d.x / 2.), dy_2(d.y * d.y / 2.), dz_2(d.z*d.z / 2.) {}
 
     bool ray_intersect(const Vec3f& orig, const Vec3f& dir, float& t0) const {
 
@@ -27,9 +32,11 @@ public:
         float c = 0;
         for (size_t i = 0; i < 3; i++)
         {
-            a += (dir[i] * dir[i]) / (d[i] * d[i]);
-            b += (dir[i] * OC[i]) / (d[i] * d[i]);
-            c += (OC[i] * OC[i]) / (d[i] * d[i]);
+            float dd_i = d[i] * d[i];
+
+            a += (dir[i] * dir[i]) / dd_i;
+            b += (dir[i] * OC[i]) / dd_i;
+            c += (OC[i] * OC[i]) / dd_i;
         }
         c -= 1;
         b *= 2;
@@ -37,12 +44,15 @@ public:
         float root = b * b - 4 * a * c;
         if (root < 0) return false;
 
-        t0 = (-b - sqrt(root)) / (2 * a);
+        float sqrt_root = sqrt(root);
+        float a_2 = 2 * a;
+
+        t0 = (-b - sqrt_root) / a_2;
         Vec3f p = orig + dir * t0;
 
         if (t0 < 0 || !inBorders(p))
         {
-            t0 = (-b + sqrt(root)) / (2 * a);
+            t0 = (-b + sqrt_root) / a_2;
             p = orig + dir * t0;
         }
 
@@ -52,42 +62,25 @@ public:
     }
     bool ray_intersect(const Vec3f& orig, const Vec3f& dir, HitPoint& hit, float& dist, bool rotate = false) const
     {
-        if (rotate)
+        Vec3f new_orig = rotate ? to_cartesian(get_rotation().getMatrix() * to_homogeneous(orig, 1)) : orig;
+        Vec3f new_dir = rotate ? to_cartesian(get_rotation().getMatrix() * to_homogeneous(dir, 0)) : dir;
+        float t0;
+        if (ray_intersect(new_orig, new_dir, t0) && t0 < dist)
         {
-            Vec3f new_orig = to_cartesian(get_rotation().getMatrix() * to_homogeneous(orig, 1));
-            Vec3f new_dir = to_cartesian(get_rotation().getMatrix() * to_homogeneous(dir, 0));
-            float t0;
-            if (ray_intersect(new_orig, new_dir, t0) && t0 < dist)
-            {
-                hit.point = new_orig + new_dir * t0;
-                hit.color = this->material.diffuse_color;
-                hit.N = this->findN(hit.point);
+            hit.point = new_orig + new_dir * t0;
+            hit.color = this->material.color;
+            hit.N = this->findN(hit.point);
 
+            if (rotate)
+            {
                 hit.point = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit.point, 1));
                 hit.N = to_cartesian(get_rotation().getMatrix_inv() * to_homogeneous(hit.N, 0));
-
-                hit.material = this->material;
-                dist = t0;
-
-                return true;
-
             }
-        }
-        else
-        {
-            float t0;
-            if (ray_intersect(orig, dir, t0) && t0 < dist)
-            {
-                hit.point = orig + dir * t0;
-                hit.color = this->material.diffuse_color;
-                hit.N = this->findN(hit.point);
 
-                hit.material = this->material;
-                dist = t0;
+            hit.material = this->material;
+            dist = t0;
 
-                return true;
-
-            }
+            return true;
         }
 
         return false;
@@ -95,9 +88,10 @@ public:
 
     Vec3f findN(Vec3f& hit) const {
 
-        float dX = 2 * (hit.x - center.x) / (d.x * d.x);
-        float dY = 2 * (hit.y - center.y) / (d.y * d.y);
-        float dZ = 2 * (hit.z - center.z) / (d.z * d.z);
+        float dX = (hit.x - center.x) / dx_2;
+        float dY = (hit.y - center.y) / dy_2;
+        float dZ = (hit.z - center.z) / dz_2;
+        
         return Vec3f(dX, dY, dZ).normalize();
     }
     Vec3f get_center() const
@@ -109,10 +103,19 @@ public:
         return material;
     }
     Rotation get_rotation() const { return rot; };
+    
     void set_rotation(const Vec3f& c, float ax, float ay, float az) { rot.setParameters(c, Vec3f(ax, ay, az)); };
     virtual Vec3f modifyN(HitPoint& hit) const
     {
         return hit.N;
     }
+    virtual Vec3f get_color(Vec3f point) const
+    {
+        return material.color;
+    }
+
+    virtual void set_texture(const Texture& txt) {};
+    virtual void set_material(const Material& mtr) {};
+    virtual void set_normal_map(const NormalMap& nm) {};
 };
 

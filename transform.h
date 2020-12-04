@@ -123,145 +123,6 @@ public:
 };
 
 
-//// вращение объекта относительно начала координат  
-//class Rotation
-//{
-//public:
-//
-//	Vec3f angle;
-//
-//	// матрицы вращения
-//	vec<4, Vec4f> matrix_x;
-//	vec<4, Vec4f> matrix_y;
-//	vec<4, Vec4f> matrix_z;
-//
-//	// обратные матрицы
-//	vec<4, Vec4f> matrix_x_inv;
-//	vec<4, Vec4f> matrix_y_inv;
-//	vec<4, Vec4f> matrix_z_inv;
-//
-//	void fill_matricies() 
-//	{
-//		if (!isZero(angle.x))
-//		{
-//			float cosa = cos(angle.x); float sina = sin(angle.x);
-//
-//			matrix_x[0][0] = 1; matrix_x[0][1] = 0;    matrix_x[0][2] = 0;     matrix_x[0][3] = 0;
-//			matrix_x[1][0] = 0; matrix_x[1][1] = cosa; matrix_x[1][2] = -sina; matrix_x[1][3] = 0;
-//			matrix_x[2][0] = 0; matrix_x[2][1] = sina; matrix_x[2][2] = cosa;  matrix_x[2][3] = 0;
-//			matrix_x[3][0] = 0; matrix_x[3][1] = 0;    matrix_x[3][2] = 0;     matrix_x[3][3] = 1;
-//
-//			matrix_x_inv[0][0] = 1; matrix_x_inv[0][1] = 0;     matrix_x_inv[0][2] = 0;    matrix_x_inv[0][3] = 0;
-//			matrix_x_inv[1][0] = 0; matrix_x_inv[1][1] = cosa;  matrix_x_inv[1][2] = sina; matrix_x_inv[1][3] = 0;
-//			matrix_x_inv[2][0] = 0; matrix_x_inv[2][1] = -sina; matrix_x_inv[2][2] = cosa; matrix_x_inv[2][3] = 0;
-//			matrix_x_inv[3][0] = 0; matrix_x_inv[3][1] = 0;     matrix_x_inv[3][2] = 0;    matrix_x_inv[3][3] = 1;
-//		}
-//
-//		if (!isZero(angle.y))
-//		{
-//			float cosa = cos(angle.y); float sina = sin(angle.y);
-//
-//			matrix_y[0][0] = cosa;  matrix_y[0][1] = 0; matrix_y[0][2] = sina;  matrix_y[0][3] = 0;
-//			matrix_y[1][0] = 0;     matrix_y[1][1] = 1; matrix_y[1][2] = 0;     matrix_y[1][3] = 0;
-//			matrix_y[2][0] = -sina; matrix_y[2][1] = 0; matrix_y[2][2] = cosa;  matrix_y[2][3] = 0;
-//			matrix_y[3][0] = 0;     matrix_y[3][1] = 0; matrix_y[3][2] = 0;     matrix_y[3][3] = 1;
-//
-//			matrix_y_inv[0][0] = cosa;  matrix_y_inv[0][1] = 0; matrix_y_inv[0][2] = -sina;  matrix_y_inv[0][3] = 0;
-//			matrix_y_inv[1][0] = 0;     matrix_y_inv[1][1] = 1; matrix_y_inv[1][2] = 0;      matrix_y_inv[1][3] = 0;
-//			matrix_y_inv[2][0] = sina;  matrix_y_inv[2][1] = 0; matrix_y_inv[2][2] = cosa;   matrix_y_inv[2][3] = 0;
-//			matrix_y_inv[3][0] = 0;     matrix_y_inv[3][1] = 0; matrix_y_inv[3][2] = 0;      matrix_y_inv[3][3] = 1;
-//		}
-//
-//		if (!isZero(angle.z))
-//		{
-//			float cosa = cos(angle.z); float sina = sin(angle.z);
-//
-//			matrix_z[0][0] = cosa;  matrix_z[0][1] = -sina; matrix_z[0][2] = 0;   matrix_z[0][3] = 0;
-//			matrix_z[1][0] = sina;  matrix_z[1][1] = cosa;  matrix_z[1][2] = 0;   matrix_z[1][3] = 0;
-//			matrix_z[2][0] = 0;     matrix_z[2][1] = 0;     matrix_z[2][2] = 1;   matrix_z[2][3] = 0;
-//			matrix_z[3][0] = 0;     matrix_z[3][1] = 0;     matrix_z[3][2] = 0;   matrix_z[3][3] = 1;
-//
-//			matrix_z_inv[0][0] = cosa;  matrix_z_inv[0][1] = sina;  matrix_z_inv[0][2] = 0;   matrix_z_inv[0][3] = 0;
-//			matrix_z_inv[1][0] = -sina; matrix_z_inv[1][1] = cosa;  matrix_z_inv[1][2] = 0;   matrix_z_inv[1][3] = 0;
-//			matrix_z_inv[2][0] = 0;     matrix_z_inv[2][1] = 0;     matrix_z_inv[2][2] = 1;   matrix_z_inv[2][3] = 0;
-//			matrix_z_inv[3][0] = 0;     matrix_z_inv[3][1] = 0;     matrix_z_inv[3][2] = 0;   matrix_z_inv[3][3] = 1;
-//		}
-//	};
-//
-//	// центр вращения и углы вокруг каждой из осей 
-//	Rotation() : angle(Vec3f(0, 0, 0)){};
-//	Rotation(float ax, float ay, float az) : angle(Vec3f(ax, ay, az))
-//	{
-//		fill_matricies();
-//	};
-//
-//	// inverse - обратное преобразование  
-//	void setAngle(float ax, float ay, float az)
-//	{
-//		angle.x = ax; angle.y = ay; angle.z = az;
-//		fill_matricies();
-//	}
-//	const Vec3f& getAngle() const { return angle; };
-//	Vec3f rotate(const Vec3f& v, int is_point, bool inverse = false) const
-//	{
-//		Vec4f v_new = Vec4f(v[0], v[1], v[2], is_point);
-//		if (!inverse)
-//		{
-//			if (!isZero(angle.z)) {
-//				v_new = matrix_z * v_new;
-//			}
-//			if (!isZero(angle.y)) {
-//
-//				v_new = matrix_y * v_new;
-//			}
-//			if (!isZero(angle.x)) {
-//				v_new = matrix_x * v_new;
-//			}
-//		}
-//		else
-//		{
-//			if (!isZero(angle.x)) v_new = matrix_x_inv * v_new;
-//			if (!isZero(angle.y)) v_new = matrix_y_inv * v_new;
-//			if (!isZero(angle.z)) v_new = matrix_z_inv * v_new;
-//		}
-//		return Vec3f(v_new[0], v_new[1], v_new[2]);
-//	};
-//
-//	// RX * RY * RZ
-//	vec<4, Vec4f> getMatrix() const
-//	{
-//		vec<4, Vec4f> mtrx(
-//			Vec4f(1, 0, 0, 0),
-//			Vec4f(0, 1, 0, 0),
-//			Vec4f(0, 0, 1, 0),
-//			Vec4f(0, 0, 0, 1)
-//		);
-//
-//		if (!isZero(angle.x)) { mtrx = mtrx * matrix_x; }
-//		if (!isZero(angle.y)) { mtrx = mtrx * matrix_y; }
-//		if (!isZero(angle.z)) { mtrx = mtrx * matrix_z; }
-//
-//		return mtrx;
-//	};
-//
-//	// RZ^(-1) * RY^(-1) * RX^(-1)
-//	vec<4, Vec4f> getMatrix_inv() const
-//	{
-//		vec<4, Vec4f> mtrx(
-//			Vec4f(1, 0, 0, 0),
-//			Vec4f(0, 1, 0, 0),
-//			Vec4f(0, 0, 1, 0),
-//			Vec4f(0, 0, 0, 1)
-//		);
-//
-//		if (!isZero(angle.z)) mtrx = mtrx * matrix_z_inv;
-//		if (!isZero(angle.y)) mtrx = mtrx * matrix_y_inv;
-//		if (!isZero(angle.x)) mtrx = mtrx * matrix_x_inv;
-//
-//		return mtrx;
-//	};
-//};
-
 // вращение объекта относительно произвольной точки 
 class Rotation
 {
@@ -333,13 +194,13 @@ public:
 	{
 		matrix = matrix * matrix_mov_inv;
 		if (!isZero(angle.x)) { matrix = matrix * matrix_x; }
-		if (!isZero(angle.y)) { matrix = matrix * matrix_y; }
 		if (!isZero(angle.z)) { matrix = matrix * matrix_z; }
+		if (!isZero(angle.y)) { matrix = matrix * matrix_y; }
 		matrix = matrix * matrix_mov;
 
 		matrix_inv = matrix_inv * matrix_mov_inv;
-		if (!isZero(angle.z)) { matrix_inv = matrix_inv * matrix_z_inv; }
 		if (!isZero(angle.y)) { matrix_inv = matrix_inv * matrix_y_inv; }
+		if (!isZero(angle.z)) { matrix_inv = matrix_inv * matrix_z_inv; }
 		if (!isZero(angle.x)) { matrix_inv = matrix_inv * matrix_x_inv; }
 		matrix_inv = matrix_inv * matrix_mov;
 	}
@@ -420,10 +281,3 @@ public:
 		return matrix_inv;
 	};
 };
-
-//// масштабиование объекта относительно произвольной точки 
-//class Scaling {};
-//
-//
-//// инкапсулирующий класс
-//class Transformer {};
