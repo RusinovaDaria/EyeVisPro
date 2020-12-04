@@ -4,3 +4,5 @@ Debug/*
 *.sln
 *.ppm
 *.png
+solver*
+*x64/*
