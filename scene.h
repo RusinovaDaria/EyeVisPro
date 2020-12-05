@@ -14,6 +14,8 @@
 // сцена = наблюдатель, тела, источники света
 class Scene
 {
+    int max_depth = 2;
+
     // камера
     int active_camera;
 
@@ -58,6 +60,7 @@ public:
     };
 
     Camera& get_camera() { return cameras[active_camera]; };
+    int get_camera_indx() { return active_camera; };
     std::vector<std::shared_ptr<Solid>>& get_solids() { return solids; };
     std::vector<Light>& get_lights() { return lights; };
     std::vector<Camera>& get_cameras() { return cameras; };
@@ -69,4 +72,7 @@ public:
         
         return back_color;
     }
+
+    int get_max_depth() { return max_depth; }
+    void set_max_depth(int d) { max_depth = d; }
 };

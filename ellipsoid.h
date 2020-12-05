@@ -14,10 +14,14 @@ public:
     Vec3f d;
     Rotation rot;
 
+    NormalMap nmap;
+    bool is_normal_map = false;
+
     float dx_2 = 0.5;
     float dy_2 = 0.5;
     float dz_2 = 0.5;
 
+    Ellipsoid(): d(Vec3f(1, 1, 1)) {}
     Ellipsoid(const Material& m) : material(m), center(Vec3f(0, 0, 0)), d(Vec3f(1, 1, 1)) {}
     Ellipsoid(Vec3f c, Vec3f d, const Material& m) : material(m), center(c), d(d),
         dx_2(d.x * d.x / 2.), dy_2(d.y * d.y / 2.), dz_2(d.z*d.z / 2.) {}
@@ -25,7 +29,6 @@ public:
     bool ray_intersect(const Vec3f& orig, const Vec3f& dir, float& t0) const {
 
         Vec3f OC = orig - center;
-
 
         float a = 0;
         float b = 0;
@@ -60,6 +63,7 @@ public:
 
         return true;
     }
+    
     bool ray_intersect(const Vec3f& orig, const Vec3f& dir, HitPoint& hit, float& dist, bool rotate = false) const
     {
         Vec3f new_orig = rotate ? to_cartesian(get_rotation().getMatrix() * to_homogeneous(orig, 1)) : orig;
@@ -94,6 +98,7 @@ public:
         
         return Vec3f(dX, dY, dZ).normalize();
     }
+
     Vec3f get_center() const
     {
         return center;
@@ -115,7 +120,8 @@ public:
     }
 
     virtual void set_texture(const Texture& txt) {};
-    virtual void set_material(const Material& mtr) {};
-    virtual void set_normal_map(const NormalMap& nm) {};
+    virtual void set_material(const Material& mtr) { material = mtr; };
+    virtual void set_normal_map(const NormalMap& nm) { is_normal_map = true; nmap = nm; };
+    
 };
 
