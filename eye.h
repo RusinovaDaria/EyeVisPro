@@ -102,11 +102,11 @@ public:
     Eye(const Vec3f& c, float r) : center(c), radius(r), border(c, 1.25 * r)
     {
         // default eye materials
-        Material const  cryst_glass(1.0, Vec4f(0.0, 0.1, 0.2, 0.7), Vec3f(0.6, 0.7, 0.8), 125.);
-        Material const  cornea_glass(1.0, Vec4f(0.0, 0.1, 0.2, 0.7), Vec3f(0.6, 0.7, 0.8), 125.);
-        Material const  blue_iris(1.0, Vec4f(0.5, 0.5, 0.0, 0.0), Vec3f(0., 0.2, 0.8), 10.);
-        Material const white_glass(1.0, Vec4f(0.5, 0.8, 0.1, 0.1), Vec3f(0.5, 0.5, 0.5), 125.);
-        Material const  red_rubber(1.0, Vec4f(0.9, 0.1, 0.0, 0.0), Vec3f(0.09, 0.01, 0.01), 10.);
+        Material const  cryst_glass(1.0, Vec4f(0.0, 0.1, 0.2, 0.7), Vec3f(0.6, 0.7, 0.8));
+        Material const  cornea_glass(1.0, Vec4f(0.0, 0.1, 0.2, 0.7), Vec3f(0.6, 0.7, 0.8));
+        Material const  blue_iris(1.0, Vec4f(0.5, 0.5, 0.0, 0.0), Vec3f(0., 0.2, 0.8));
+        Material const white_glass(1.0, Vec4f(0.5, 0.8, 0.1, 0.1), Vec3f(0.5, 0.5, 0.5));
+        Material const  red_rubber(1.0, Vec4f(0.9, 0.1, 0.0, 0.0), Vec3f(0.09, 0.01, 0.01));
 
         components.push_back(new Cornea(c - Vec3f(0.37 * r, 0, 0), 0.9 * r, cornea_glass));
         components.push_back(new Sclera(c, r * 7 / 6, white_glass));

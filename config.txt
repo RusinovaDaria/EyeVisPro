@@ -1,1 +1,1 @@
-./scenes/test_input.txt
+./scenes/test_input2.txt

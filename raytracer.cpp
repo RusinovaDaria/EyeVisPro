@@ -5,6 +5,8 @@
 #include <omp.h>
 #include "utils.h"
 
+#define SPECULAR_EXPONENT 250;
+
 Vec3f reflect(const Vec3f& I, const Vec3f& N) 
 {
     return I - N * 2.f * (I * N);
@@ -52,12 +54,12 @@ Vec3f cast_ray(const Vec3f& orig, const Vec3f& dir, Scene& scene, size_t depth) 
     bool is_scene_intersect = scene_intersect(orig, dir, solids, hit);
 
     // наткнулись на внутреннюю сторону непрозрачного тела 
-    if (is_scene_intersect && dot(dir, hit.N) > 0 && hit.material.albedo[3] <= 0.5)
+    if (is_scene_intersect && dot(dir, hit.N) > 0 && hit.material.coeffs[3] <= 0.5)
     {
             return Vec3f(0, 0, 0);
     }
-
-    if (depth > 2 || !is_scene_intersect)
+    
+    if (depth > scene.get_max_depth() || !is_scene_intersect)
     {   
         // цвет фона
         return scene.getBackgroundColor(dir);
@@ -82,21 +84,21 @@ Vec3f cast_ray(const Vec3f& orig, const Vec3f& dir, Scene& scene, size_t depth) 
 
         // луч из теневой точки пересекает на своем пути какое то тело и оно непрозрачное
         bool is_intersect = scene_intersect(shadow_orig, light_dir, solids, shadow_hit) && (shadow_hit.point - shadow_orig).norm() < light_distance;
-        if (is_intersect && shadow_hit.material.albedo[3] < 0.5)
+        if (is_intersect && shadow_hit.material.coeffs[3] < 0.5)
             continue;
         
         float intensity = lights[i].intensity;
         if (is_intersect)
-            intensity *= shadow_hit.material.albedo[3];
+            intensity *= shadow_hit.material.coeffs[3];
 
         diffuse_light_intensity += intensity * std::max(0.f, light_dir * hit.N);
-        specular_light_intensity += powf(std::max(0.f, -reflect(-light_dir, hit.N) * dir), hit.material.specular_exponent) * lights[i].intensity;
+        specular_light_intensity += powf(std::max(0.f, -reflect(-light_dir, hit.N) * dir), 250) * lights[i].intensity;
     }
 
-    return hit.color * diffuse_light_intensity * hit.material.albedo[0] + 
-        Vec3f(1., 1., 1.) * specular_light_intensity * hit.material.albedo[1] +
-        reflect_color * hit.material.albedo[2] + 
-        refract_color * hit.material.albedo[3];
+    return hit.color * diffuse_light_intensity * hit.material.coeffs[0] +         // диффузное отражение света
+        Vec3f(1., 1., 1.) * specular_light_intensity * hit.material.coeffs[1] +   // зеркальное отражение  света
+        reflect_color * hit.material.coeffs[2] +    // зеркальность (отражает другие предметы в себе)
+        refract_color * hit.material.coeffs[3];     // прозрачность
 }
 
 void render(System::Drawing::Bitmap^ bmp, Scene& scene)
