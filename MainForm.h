@@ -112,40 +112,6 @@ namespace EyeVizPro {
 	private: System::Windows::Forms::NumericUpDown^ nud_rotz;
 	private: System::Windows::Forms::Button^ btn_delete_cam;
 	private: System::Windows::Forms::Label^ active_camera_label;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	protected:
-
 	private:
 		/// <summary>
 		/// Required designer variable.
