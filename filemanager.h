@@ -5,6 +5,7 @@
 #include "lense.h"
 #include <string>
 #include <exception>
+#include "plane.h"
 
 // задача файлового менеджера - читать сцену из файла
 // задача таск менеджера - выполнять действия над сценой 
@@ -32,7 +33,10 @@ private:
 
 		// читаем глаз
 		int is_eye;
-		if (file >> is_eye && is_eye)
+		if (!(file >> is_eye))
+			handle_exception(file, "Failed to read eye flag");
+
+		if(is_eye)
 		{
 			// allocate memory for eye
 			std::shared_ptr<Eye> eye = std::shared_ptr<Eye>(new Eye());
@@ -47,19 +51,39 @@ private:
 
 		// читаем линзу
 		int is_lense;
-		if (file >> is_lense && is_lense)
+		if (!(file >> is_lense))
+			handle_exception(file, "Failed to read lense flag");
+
+		if(is_lense)
 		{
 			scene.set_max_depth(4);
 
-			// allocate memory for 
+			// allocate memory for lense
 			std::shared_ptr<Lense> lense = std::shared_ptr<Lense>(new Lense());
 
 			// try to read eye lense
 			if (read_lense(file, *lense) == SUCCESS)
-				scene.add_solid(lense); // if ok, add eye to scene
+				scene.add_solid(lense); // if ok, add lense to scene
 			else
 				handle_exception(file, "Error while reading eye description");
 		};
+
+		// читаем стол
+		int is_plane;
+		if (!(file >> is_plane))
+			handle_exception(file, "Failed to read plane flag");
+
+		if (is_plane)
+		{
+			// allocate memory for 
+			std::shared_ptr<Plane> plane = std::shared_ptr<Plane>(new Plane());
+
+			// try to read eye lense
+			if (read_plane(file, *plane) == SUCCESS)
+				scene.add_solid(plane); // if ok, add plane to scene
+			else
+				handle_exception(file, "Error while reading plane description");
+		}
 
 		// читаем свет
 		int n_lights;
@@ -134,6 +158,23 @@ private:
 			back.set_faces({ px, ny, pz, nx, py, nz });
 		else
 			handle_exception(file, "Error while reading eye description");
+
+		return 0;
+	}
+
+	static int read_plane(std::ifstream& file, Plane& plane)
+	{
+		Vec3f d;
+		int s;
+		file >> d;
+		file >> s;
+
+		Material plane_mtrl;
+		read_material(file, plane_mtrl);
+
+		plane.set_material(plane_mtrl);
+		plane.set_distance(d);
+		plane.set_side(s);
 
 		return 0;
 	}

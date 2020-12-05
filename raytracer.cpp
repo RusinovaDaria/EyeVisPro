@@ -24,25 +24,14 @@ Vec3f refract(const Vec3f& I, const Vec3f& N, const float eta_t, const float eta
 }
 
 bool scene_intersect(const Vec3f& orig, const Vec3f& dir, const std::vector<std::shared_ptr<Solid>>& solids, HitPoint& hit) {
-    float spheres_dist = std::numeric_limits<float>::max();
+    
+    float solids_dist = std::numeric_limits<float>::max();
     for (size_t i = 0; i < solids.size(); i++)
     {
-        solids[i]->ray_intersect(orig, dir, hit, spheres_dist, true);
+        solids[i]->ray_intersect(orig, dir, hit, solids_dist, true);
     }
 
-    float board_dist = std::numeric_limits<float>::max();
-    if (fabs(dir.y) > 1e-3) {
-        float d = -(orig.y + 4) / dir.y;
-        Vec3f pt = orig + dir * d;
-        if (d > 0 && fabs(pt.x) < 10 && pt.z<-10 && pt.z>-30 && d < spheres_dist) {
-            board_dist = d;
-            hit.point = pt;
-            hit.N = Vec3f(0, 1, 0);
-            hit.material.color = Vec3f(.3, .3, .3);
-            hit.color = Vec3f(.3, .3, .3);
-        }
-    }
-    return std::min(spheres_dist, board_dist) < 1000;
+    return solids_dist < 1000;
 }
 
 Vec3f cast_ray(const Vec3f& orig, const Vec3f& dir, Scene& scene, size_t depth) {
